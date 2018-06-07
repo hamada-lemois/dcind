@@ -13,7 +13,7 @@ sanitize_cgroups() {
       continue
     fi
 
-    grouping="$(cat /proc/self/cgroup | cut -d: -f2 | grep "\\<$sys\\>")"
+    grouping="$(cat /proc/self/cgroup | cut -d: -f2 | grep "\\<$sys\\>")" || true
     if [ -z "$grouping" ]; then
       # subsystem not mounted anywhere; mount it on its own
       grouping="$sys"
@@ -38,6 +38,11 @@ sanitize_cgroups() {
       ln -s "$mountpoint" "/sys/fs/cgroup/$sys"
     fi
   done
+
+  if ! test -e /sys/fs/cgroup/systemd ; then
+    mkdir /sys/fs/cgroup/systemd
+    mount -t cgroup -o none,name=systemd none /sys/fs/cgroup/systemd
+  fi
 }
 
 start_docker() {
@@ -65,7 +70,7 @@ start_docker() {
     server_args="${server_args} -g=$3"
   fi
 
-  docker daemon --data-root /scratch/docker ${server_args} >/tmp/docker.log 2>&1 &
+  dockerd --data-root /scratch/docker ${server_args} >/tmp/docker.log 2>&1 &
   echo $! > /tmp/docker.pid
 
   trap stop_docker EXIT
